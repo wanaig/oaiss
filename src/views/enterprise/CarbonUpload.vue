@@ -239,7 +239,7 @@ const onSignConfirm = async (row) => {
   <section class="upload-page">
     <el-card class="section-card" shadow="never">
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item :to="appStore.homePath">碳核算</el-breadcrumb-item>
+        <el-breadcrumb-item>碳核算</el-breadcrumb-item>
         <el-breadcrumb-item>上传审核</el-breadcrumb-item>
       </el-breadcrumb>
     </el-card>

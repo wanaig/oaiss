@@ -228,7 +228,6 @@ const onDeleteOrder = async (row) => {
   <section class="orders-page">
     <el-card class="section-card" shadow="never">
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item :to="'/enterprise/carbon/upload'">首页</el-breadcrumb-item>
         <el-breadcrumb-item>P2P订单管理</el-breadcrumb-item>
         <el-breadcrumb-item>订单管理</el-breadcrumb-item>
       </el-breadcrumb>

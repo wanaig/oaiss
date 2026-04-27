@@ -5,7 +5,13 @@ import { ROLE } from '../config/menu'
 const routes = [
   {
     path: '/',
-    redirect: '/enterprise/carbon/upload',
+    redirect: '/official-home',
+  },
+  {
+    path: '/official-home',
+    name: 'OfficialHome',
+    component: () => import('../views/OfficialHome.vue'),
+    meta: { public: true, keepWhenLoggedIn: true, title: '官方网站首页' },
   },
   {
     path: '/login',
@@ -93,7 +99,7 @@ const router = createRouter({
 router.beforeEach((to) => {
   const appStore = useAppStore(pinia)
 
-  if (to.meta.public && appStore.loggedIn) {
+  if (to.meta.public && appStore.loggedIn && !to.meta.keepWhenLoggedIn) {
     return appStore.homePath
   }
 

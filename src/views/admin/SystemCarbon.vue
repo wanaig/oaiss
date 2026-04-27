@@ -245,7 +245,6 @@ const onConfirmSign = async (row) => {
   <section class="carbon-page">
     <el-card class="section-card" shadow="never">
       <el-breadcrumb separator="/">
-        <el-breadcrumb-item :to="'/enterprise/carbon/upload'">首页</el-breadcrumb-item>
         <el-breadcrumb-item>系统管理</el-breadcrumb-item>
         <el-breadcrumb-item>碳核算管理</el-breadcrumb-item>
       </el-breadcrumb>
