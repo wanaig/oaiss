@@ -54,6 +54,12 @@ const routes = [
         meta: { title: '数据可视化', roles: [ROLE.ENTERPRISE] },
       },
       {
+        path: 'enterprise/blockchain/transaction',
+        name: 'EnterpriseBlockchainTransaction',
+        component: () => import('../views/enterprise/BlockchainTransaction.vue'),
+        meta: { title: '交易信息', roles: [ROLE.ENTERPRISE] },
+      },
+      {
         path: 'auditor/audit/list',
         name: 'AuditorAuditList',
         component: () => import('../views/auditor/AuditList.vue'),

@@ -37,6 +37,10 @@ export const MENU_BY_ROLE = {
           ],
         },
         {
+          label: '区块链交易',
+          children: [{ label: '交易信息', path: '/enterprise/blockchain/transaction' }],
+        },
+        {
           label: '本公司信息',
           children: [{ label: '数据可视化', path: '/enterprise/company/dashboard' }],
         },
