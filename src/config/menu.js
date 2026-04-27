@@ -27,22 +27,20 @@ export const MENU_BY_ROLE = {
         },
         {
           label: 'P2P订单管理',
-          children: [{ label: '订单管理', path: '/enterprise/orders/manage' }],
+          children: [{ label: '订单管理', path: '/enterprise/p2p/orders' }],
         },
         {
           label: '碳交易',
           children: [
             { label: '双向拍卖', path: '/enterprise/trading/market' },
-            { label: 'P2P交易', path: '/enterprise/trading/p2p' },
           ],
         },
         {
-          label: '区块链交易',
-          children: [{ label: '交易信息', path: '/enterprise/blockchain/transaction' }],
-        },
-        {
           label: '本公司信息',
-          children: [{ label: '数据可视化', path: '/enterprise/company/dashboard' }],
+          children: [
+            { label: '我的账户', path: '/enterprise/account/center' },
+            { label: '数据可视化', path: '/enterprise/company/dashboard' },
+          ],
         },
       ],
     },
@@ -53,7 +51,9 @@ export const MENU_BY_ROLE = {
       children: [
         {
           label: '审核材料',
-          children: [{ label: '碳排放数据', path: '/auditor/audit/list' }],
+          children: [
+            { label: '审核列表', path: '/auditor/audit/list' },
+          ],
         },
       ],
     },
