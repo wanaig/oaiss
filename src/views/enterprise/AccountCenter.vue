@@ -45,7 +45,9 @@ const openTxDetail = (tx) => { currentTx.value = tx; txDetailVisible.value = tru
         <el-table-column label="数量" width="80" align="right"><template #default="{ row }">{{ (row.quantity || 0).toLocaleString() }}</template></el-table-column>
         <el-table-column label="成交额" width="110" align="right"><template #default="{ row }">¥{{ (row.totalAmount || 0).toLocaleString() }}</template></el-table-column>
         <el-table-column label="对手方" min-width="120"><template #default="{ row }">{{ row.buyerId === store.currentCompanyId ? row.sellerName : row.buyerName }}</template></el-table-column>
-        <el-table-column prop="timestamp" label="时间" min-width="160" />
+        <el-table-column label="时间" min-width="160">
+          <template #default="{ row }">{{ row.txTime || row.createdAt || row.timestamp }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="70" align="center"><template #default="{ row }"><el-button link type="primary" size="small" @click="openTxDetail(row)">详情</el-button></template></el-table-column>
       </el-table>
       <div class="pagination-wrap"><el-pagination v-model:current-page="txPage" v-model:page-size="txPageSize" background :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" :total="myTx.length" /></div>
@@ -62,7 +64,7 @@ const openTxDetail = (tx) => { currentTx.value = tx; txDetailVisible.value = tru
         <el-descriptions-item label="总额">¥{{ (currentTx.totalAmount || 0).toLocaleString() }}</el-descriptions-item>
         <el-descriptions-item label="买方">{{ currentTx.buyerName }}</el-descriptions-item>
         <el-descriptions-item label="卖方">{{ currentTx.sellerName }}</el-descriptions-item>
-        <el-descriptions-item label="时间" :span="2">{{ currentTx.timestamp }}</el-descriptions-item>
+        <el-descriptions-item label="时间" :span="2">{{ currentTx.txTime || currentTx.createdAt || currentTx.timestamp }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
   </PageSaaSWrapper>

@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAppStore } from '../../store'
 import { useCarbonStore } from '../../store/carbon'
-import { AUDIT_STATUS, ENTERPRISE_TYPES, computeEmission } from '../../config/constants'
+import { AUDIT_STATUS_MAP, ENTERPRISE_TYPES, computeEmission } from '../../config/constants'
 import PageSaaSWrapper from '../../components/PageSaaSWrapper.vue'
 
 const appStore = useAppStore()
@@ -54,11 +54,12 @@ const pagedData = computed(() => {
 
 const kpi = computed(() => ({
   total: store.emissionReports.length,
-  approved: store.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.APPROVED).length,
-  pending: store.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.PENDING).length,
+  approved: store.emissionReports.filter(r => r.auditStatus === 'approved').length,
+  pending: store.emissionReports.filter(r => r.auditStatus === 'pending').length,
 }))
 
-const auditStatusTag = (s) => ({ 待审核: 'warning', 已通过: 'success', 已驳回: 'danger' }[s] || 'info')
+const auditStatusInfo = (s) => AUDIT_STATUS_MAP[s] || { label: s, type: 'info' }
+const isApproved = (s) => s === 'approved'
 
 const resetForm = () => { Object.assign(formModel, { deptName: '', deptCode: '', enterpriseType: '', coalHeatValue: null, coalConsumption: null, oilHeatValue: null, oilConsumption: null }) }
 const openAddDialog = () => { dialogMode.value = 'add'; editingId.value = null; resetForm(); dialogVisible.value = true }
@@ -97,7 +98,7 @@ const onSubmitForAudit = async (row) => {
 }
 
 const onDelete = async (row) => {
-  if (row.auditStatus === AUDIT_STATUS.APPROVED) { ElMessage.warning('已通过的报告不可删除'); return }
+  if (row.auditStatus === 'approved') { ElMessage.warning('已通过的报告不可删除'); return }
   try {
     await ElMessageBox.confirm('确定删除该报告吗？', '删除确认', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
     await store.deleteEmissionReport(row.id)
@@ -134,13 +135,13 @@ onMounted(() => { store.fetchEmissionReports() })
         <el-table-column prop="id" label="报告ID" min-width="140" />
         <el-table-column prop="deptName" label="部门" min-width="120" show-overflow-tooltip />
         <el-table-column label="碳排放量" min-width="110" align="right"><template #default="{ row }">{{ (row.emission || 0).toLocaleString() }} t</template></el-table-column>
-        <el-table-column label="审核状态" width="90" align="center"><template #default="{ row }"><el-tag :type="auditStatusTag(row.auditStatus)" size="small">{{ row.auditStatus }}</el-tag></template></el-table-column>
+        <el-table-column label="审核状态" width="90" align="center"><template #default="{ row }"><el-tag :type="auditStatusInfo(row.auditStatus).type" size="small">{{ auditStatusInfo(row.auditStatus).label }}</el-tag></template></el-table-column>
         <el-table-column prop="submitTime" label="提交时间" min-width="160" />
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button link size="small" @click="onSubmitForAudit(row)" :disabled="row.signed || row.auditStatus === AUDIT_STATUS.APPROVED">提交审核</el-button>
-            <el-button link size="small" @click="openEditDialog(row)" :disabled="row.auditStatus === AUDIT_STATUS.APPROVED">编辑</el-button>
-            <el-button link type="danger" size="small" @click="onDelete(row)" :disabled="row.auditStatus === AUDIT_STATUS.APPROVED">删除</el-button>
+            <el-button link size="small" @click="onSubmitForAudit(row)" :disabled="row.signed || isApproved(row.auditStatus)">提交审核</el-button>
+            <el-button link size="small" @click="openEditDialog(row)" :disabled="isApproved(row.auditStatus)">编辑</el-button>
+            <el-button link type="danger" size="small" @click="onDelete(row)" :disabled="isApproved(row.auditStatus)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>

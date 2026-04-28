@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCarbonStore } from '../../store/carbon'
-import { AUDIT_STATUS, ENTERPRISE_TYPES, computeEmission } from '../../config/constants'
+import { AUDIT_STATUS_MAP, ENTERPRISE_TYPES, computeEmission } from '../../config/constants'
 import PageSaaSWrapper from '../../components/PageSaaSWrapper.vue'
 
 const store = useCarbonStore()
@@ -26,11 +26,11 @@ const pagedData = computed(() => { const s = (page.value - 1) * pageSize.value; 
 
 const kpi = computed(() => ({
   total: store.emissionReports.length,
-  approved: store.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.APPROVED).length,
-  pending: store.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.PENDING).length,
+  approved: store.emissionReports.filter(r => r.auditStatus === 'approved').length,
+  pending: store.emissionReports.filter(r => r.auditStatus === 'pending').length,
 }))
 
-const auditStatusTag = (s) => ({ 待审核: 'warning', 已通过: 'success', 已驳回: 'danger' }[s] || 'info')
+const auditStatusInfo = (s) => AUDIT_STATUS_MAP[s] || { label: s, type: 'info' }
 
 onMounted(() => { store.fetchEmissionReports() })
 
@@ -72,7 +72,7 @@ const onDelete = async (row) => {
         <el-table-column prop="companyName" label="企业" min-width="140" show-overflow-tooltip />
         <el-table-column prop="deptName" label="部门" min-width="120" />
         <el-table-column label="碳排放量" width="110" align="right"><template #default="{ row }">{{ (row.emission || 0).toLocaleString() }} t</template></el-table-column>
-        <el-table-column label="状态" width="80" align="center"><template #default="{ row }"><el-tag :type="auditStatusTag(row.auditStatus)" size="small">{{ row.auditStatus }}</el-tag></template></el-table-column>
+        <el-table-column label="状态" width="80" align="center"><template #default="{ row }"><el-tag :type="auditStatusInfo(row.auditStatus).type" size="small">{{ auditStatusInfo(row.auditStatus).label }}</el-tag></template></el-table-column>
         <el-table-column prop="submitTime" label="提交时间" min-width="160" />
         <el-table-column label="操作" width="130" fixed="right"><template #default="{ row }"><el-button link size="small" @click="openEdit(row)">编辑</el-button><el-button link type="danger" size="small" @click="onDelete(row)">删除</el-button></template></el-table-column>
       </el-table>

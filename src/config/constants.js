@@ -6,12 +6,20 @@ export const ORDER_STATUS = Object.freeze({
   CANCELLED: '已取消',
 })
 
-// 审核状态
+// 审核状态（中文常量，保留兼容）
 export const AUDIT_STATUS = Object.freeze({
   PENDING: '待审核',
   APPROVED: '已通过',
   REJECTED: '已驳回',
 })
+
+// API 审核状态 → 前端显示映射（后端返回 pending/approved/rejected）
+export const AUDIT_STATUS_MAP = {
+  draft: { label: '草稿', type: 'info' },
+  pending: { label: '待审核', type: 'warning' },
+  approved: { label: '已通过', type: 'success' },
+  rejected: { label: '已驳回', type: 'danger' },
+}
 
 // 企业类型
 export const ENTERPRISE_TYPES = Object.freeze(['发电企业', '电网企业'])
@@ -32,7 +40,7 @@ export const ORDER_SIDE_LABEL = Object.freeze({
 
 // API 订单状态 → 前端显示映射
 export const ORDER_STATUS_MAP = {
-  open: { label: 'open', type: '' },
+  open: { label: '待成交', type: '' },
   filled: { label: '已完成', type: 'success' },
   cancelled: { label: '已取消', type: 'info' },
   partial: { label: '部分成交', type: 'warning' },

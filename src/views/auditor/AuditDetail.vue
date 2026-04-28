@@ -3,7 +3,7 @@ import { reactive, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useCarbonStore } from '../../store/carbon'
-import { AUDIT_STATUS } from '../../config/constants'
+import { AUDIT_STATUS_MAP } from '../../config/constants'
 import PageSaaSWrapper from '../../components/PageSaaSWrapper.vue'
 
 const route = useRoute(); const router = useRouter()
@@ -14,6 +14,7 @@ const report = ref(null)
 const loading = ref(true)
 
 const auditForm = reactive({ pollutionStatus: '', impactAssessment: '', emissionLevel: '', auditPassword: '', eventCode: '' })
+const auditStatusInfo = (s) => AUDIT_STATUS_MAP[s] || { label: s, type: 'info' }
 const pollutionOptions = ['正常', '轻度污染', '中度污染', '重度污染']
 const rejectDialogVisible = ref(false); const rejectReason = ref('')
 
@@ -47,7 +48,7 @@ const onReject = async () => {
 <template>
   <PageSaaSWrapper title="审核详情" description="查看报告详情并进行审核操作">
     <el-card shadow="never" v-if="!loading && report">
-      <template #header><div style="display:flex;justify-content:space-between;align-items:center"><span>报告信息 — {{ report.id }}</span><el-tag :type="report.auditStatus === AUDIT_STATUS.PENDING ? 'warning' : report.auditStatus === AUDIT_STATUS.APPROVED ? 'success' : 'danger'" size="large">{{ report.auditStatus }}</el-tag></div></template>
+      <template #header><div style="display:flex;justify-content:space-between;align-items:center"><span>报告信息 — {{ report.id }}</span><el-tag :type="auditStatusInfo(report.auditStatus).type" size="large">{{ auditStatusInfo(report.auditStatus).label }}</el-tag></div></template>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="报告ID">{{ report.id }}</el-descriptions-item>
         <el-descriptions-item label="企业">{{ report.companyName }}</el-descriptions-item>
@@ -73,7 +74,7 @@ const onReject = async () => {
       </div>
     </el-card>
 
-    <el-card shadow="never" v-if="report && report.auditStatus === AUDIT_STATUS.PENDING">
+    <el-card shadow="never" v-if="report && report.auditStatus === 'pending'">
       <template #header><span>审核表单</span></template>
       <el-form label-width="110px">
         <el-form-item label="污染状况"><el-select v-model="auditForm.pollutionStatus" style="width:100%"><el-option v-for="o in pollutionOptions" :key="o" :label="o" :value="o" /></el-select></el-form-item>

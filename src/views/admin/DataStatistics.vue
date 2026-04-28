@@ -1,61 +1,137 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import { useCarbonStore } from '../../store/carbon'
-import { AUDIT_STATUS } from '../../config/constants'
 import PageSaaSWrapper from '../../components/PageSaaSWrapper.vue'
 
 const store = useCarbonStore()
+const dash = computed(() => store.systemDashboard)
+const stats = computed(() => dash.value?.stats)
+const emissionTrend = computed(() => dash.value?.emissionTrend || [])
+const txTrend = computed(() => dash.value?.transactionTrend || [])
+const statusDist = computed(() => dash.value?.reportStatusDistribution || [])
+const ranking = computed(() => dash.value?.enterpriseRanking || [])
 
-const searchKeyword = ref(''); const timeDimension = ref('day')
-const chartRefs = [ref(null), ref(null), ref(null), ref(null), ref(null), ref(null)]
+const visibleChartOptions = computed(() => {
+  return chartOptions.value
+    .map((opt, i) => ({ opt, i }))
+    .filter(item => item.opt !== null)
+})
+
+const granularity = ref('month')
+const chartRefs = []; const setChartRef = (i) => (el) => { if (el) chartRefs[i] = el }
 const charts = []
 
-const totalUsers = computed(() => store.statistics?.totalUsers ?? '-')
-const totalReports = computed(() => store.statistics?.totalReports ?? '-')
-const totalTransactions = computed(() => store.statistics?.totalTransactions ?? '-')
+const STATUS_LABEL = { approved: '已通过', pending: '待审核', draft: '草稿', rejected: '已驳回' }
+const STATUS_COLOR = { approved: '#2ec4b6', pending: '#f9a826', draft: '#9ca3af', rejected: '#e63946' }
 
-const genLabels = () => { const n = new Date(); return Array.from({ length: 12 }, (_, i) => { const d = new Date(n); d.setDate(d.getDate() - (11 - i)); return `${d.getMonth() + 1}/${d.getDate()}` }) }
-const genValues = (base, c = 12) => Array.from({ length: c }, () => Math.max(1, Math.round(base + (Math.random() - 0.5) * base * 0.6)))
+const buildBarOption = (data, title, color = '#4361ee') => ({
+  tooltip: { trigger: 'axis' }, grid: { left: 50, right: 20, top: 40, bottom: 30 },
+  title: { text: title, left: 'center', textStyle: { fontSize: 13, fontWeight: 600 } },
+  xAxis: { type: 'category', data: data.labels, axisLabel: { rotate: 30, fontSize: 11 } },
+  yAxis: { type: 'value' },
+  series: [{ name: title, type: 'bar', data: data.values, itemStyle: { color, borderRadius: [4, 4, 0, 0] } }],
+})
 
-const buildBarOption = (data, title) => ({ tooltip: { trigger: 'axis' }, grid: { left: 40, right: 20, top: 40, bottom: 30 }, title: { text: title, left: 'center', textStyle: { fontSize: 13, fontWeight: 600 } }, xAxis: { type: 'category', data: data.labels }, yAxis: { type: 'value' }, series: [{ name: title, type: 'bar', data: data.values, itemStyle: { color: '#4361ee', borderRadius: [4, 4, 0, 0] } }] })
-const buildLineOption = (data, title, color = '#4361ee') => ({ tooltip: { trigger: 'axis' }, grid: { left: 40, right: 20, top: 40, bottom: 30 }, title: { text: title, left: 'center', textStyle: { fontSize: 13, fontWeight: 600 } }, xAxis: { type: 'category', data: data.labels }, yAxis: { type: 'value' }, series: [{ name: title, type: 'line', data: data.values, smooth: true, areaStyle: { color: `${color}22` }, lineStyle: { color, width: 2 }, itemStyle: { color } }] })
-const buildPieOption = (data, title) => ({ tooltip: { trigger: 'item' }, title: { text: title, left: 'center', textStyle: { fontSize: 13, fontWeight: 600 } }, series: [{ name: title, type: 'pie', radius: ['40%', '72%'], center: ['50%', '55%'], data: data.map(d => ({ ...d, name: d.label })), label: { formatter: '{b}: {d}%' } }] })
+const buildLineOption = (data, title, color = '#4361ee') => ({
+  tooltip: { trigger: 'axis' }, grid: { left: 50, right: 20, top: 40, bottom: 30 },
+  title: { text: title, left: 'center', textStyle: { fontSize: 13, fontWeight: 600 } },
+  xAxis: { type: 'category', data: data.labels, axisLabel: { rotate: 30, fontSize: 11 } },
+  yAxis: { type: 'value' },
+  series: [{ name: title, type: 'line', data: data.values, smooth: true, areaStyle: { color: `${color}22` }, lineStyle: { color, width: 2 }, itemStyle: { color } }],
+})
 
-const chartData = computed(() => {
-  const labels = genLabels(); const base = Math.max(5, Math.round((totalReports.value || 100) / 10)) * 10
-  return { labels, coinStatus: genValues(base), trend: genValues(base * 3), limit: genValues(base * 2), emissionPie: [{ label: '个人', value: base * 4 }, { label: '国有企业', value: base * 10 }, { label: '私有企业', value: base * 6 }, { label: '海外企业', value: base * 3 }, { label: '公私合营', value: base * 2 }], emissionType: [{ label: '水体', value: base * 5 }, { label: '固体', value: base * 4 }, { label: '化学', value: base * 3 }, { label: '气体', value: base * 8 }, { label: '混合物', value: base * 2 }], activity: genValues(base * 5) }
+const buildPieOption = (data, title) => ({
+  tooltip: { trigger: 'item' },
+  title: { text: title, left: 'center', textStyle: { fontSize: 13, fontWeight: 600 } },
+  series: [{ name: title, type: 'pie', radius: ['40%', '72%'], center: ['50%', '55%'], data: data.map(d => ({ ...d, name: d.label })), label: { formatter: '{b}: {d}%' } }],
+})
+
+const chartOptions = computed(() => {
+  const eLabels = emissionTrend.value.map(t => t.period)
+  const eValues = emissionTrend.value.map(t => t.totalEmission)
+  const tLabels = txTrend.value.map(t => t.period)
+  const tCounts = txTrend.value.map(t => t.transactionCount)
+  const tAmounts = txTrend.value.map(t => t.totalAmount)
+
+  const distPie = statusDist.value.map(d => ({
+    label: STATUS_LABEL[d.status] || d.status,
+    value: d.count,
+    itemStyle: { color: STATUS_COLOR[d.status] || '#9ca3af' },
+  }))
+
+  const rankNames = ranking.value.map(r => r.companyName)
+  const rankEmissions = ranking.value.map(r => r.totalEmission)
+
+  return [
+    eLabels.length ? buildLineOption({ labels: eLabels, values: eValues }, '碳排放趋势', '#4361ee') : null,
+    tLabels.length ? buildBarOption({ labels: tLabels, values: tCounts }, '交易笔数', '#2ec4b6') : null,
+    tLabels.length ? buildLineOption({ labels: tLabels, values: tAmounts }, '交易金额趋势', '#f9a826') : null,
+    distPie.length ? buildPieOption(distPie, '报告状态分布') : null,
+    rankNames.length ? buildBarOption({ labels: rankNames, values: rankEmissions }, '企业排放排名', '#e63946') : null,
+    rankNames.length ? buildBarOption({ labels: rankNames, values: ranking.value.map(r => r.transactionCount) }, '企业交易排名', '#2ec4b6') : null,
+  ]
 })
 
 const initCharts = () => {
-  const d = chartData.value; const options = [buildBarOption({ labels: d.labels, values: d.coinStatus }, '碳币状况'), buildLineOption({ labels: d.labels, values: d.trend }, 'AI预测碳排放趋势', '#2ec4b6'), buildBarOption({ labels: d.labels, values: d.limit }, 'AI建议排放限额'), buildPieOption(d.emissionPie, '排放方式占比'), buildPieOption(d.emissionType, '排放类型占比'), buildLineOption({ labels: d.labels, values: d.activity }, '交易活跃度', '#f9a826')]
-  charts.forEach(c => c && c.dispose()); charts.length = 0
-  chartRefs.forEach((ref, i) => { if (ref.value) { const c = echarts.init(ref.value, null, { renderer: 'canvas' }); c.setOption(options[i]); charts.push(c) } })
+  const opts = chartOptions.value
+  charts.forEach(c => c && c.dispose())
+  charts.length = 0
+  chartRefs.forEach((el, i) => {
+    if (el && opts[i]) {
+      const c = echarts.init(el, null, { renderer: 'canvas' })
+      c.setOption(opts[i])
+      charts.push(c)
+    }
+  })
 }
 
-onMounted(async () => { await Promise.all([store.fetchStatistics(), store.fetchEmissionReports()]); initCharts() })
-watch(chartData, initCharts, { deep: true })
+onMounted(async () => {
+  await store.fetchSystemDashboard({ granularity: granularity.value })
+  if (store.systemDashboard) nextTick(initCharts)
+})
+
+watch(granularity, async () => {
+  await store.fetchSystemDashboard({ granularity: granularity.value })
+  if (store.systemDashboard) nextTick(initCharts)
+})
+
+watch(chartOptions, () => { if (store.systemDashboard) nextTick(initCharts) }, { deep: true })
 onBeforeUnmount(() => charts.forEach(c => c && c.dispose()))
 </script>
 
 <template>
-  <PageSaaSWrapper title="数据统计" description="系统级碳交易数据分析看板">
-    <div class="kpi-row">
-      <el-card shadow="never" class="kpi-card"><div class="kpi-label">用户总数</div><div class="kpi-value">{{ totalUsers }}</div></el-card>
-      <el-card shadow="never" class="kpi-card"><div class="kpi-label">报告总数</div><div class="kpi-value" style="color:var(--saas-success)">{{ totalReports }}</div></el-card>
-      <el-card shadow="never" class="kpi-card"><div class="kpi-label">交易总数</div><div class="kpi-value" style="color:var(--saas-primary)">{{ totalTransactions }}</div></el-card>
+  <PageSaaSWrapper title="系统数据统计" description="全局碳交易与碳排放数据分析看板">
+    <div class="kpi-row" v-if="stats">
+      <el-card shadow="never" class="kpi-card"><div class="kpi-label">用户总数</div><div class="kpi-value">{{ stats.totalUsers }}</div></el-card>
+      <el-card shadow="never" class="kpi-card"><div class="kpi-label">报告总数</div><div class="kpi-value" style="color:var(--saas-success)">{{ stats.totalReports }}</div></el-card>
+      <el-card shadow="never" class="kpi-card"><div class="kpi-label">交易总数</div><div class="kpi-value" style="color:var(--saas-primary)">{{ stats.totalTransactions }}</div></el-card>
     </div>
 
     <el-card shadow="never">
       <div class="filter-row">
-        <el-input v-model="searchKeyword" placeholder="搜索企业" clearable style="width:200px" />
-        <el-radio-group v-model="timeDimension"><el-radio-button value="day">日</el-radio-button><el-radio-button value="month">月</el-radio-button><el-radio-button value="year">年</el-radio-button></el-radio-group>
+        <el-radio-group v-model="granularity">
+          <el-radio-button value="month">月度</el-radio-button>
+          <el-radio-button value="quarter">季度</el-radio-button>
+          <el-radio-button value="year">年度</el-radio-button>
+        </el-radio-group>
       </div>
     </el-card>
 
     <div class="chart-grid">
-      <el-card v-for="(ref, i) in chartRefs" :key="i" shadow="never" class="chart-card"><div :ref="chartRefs[i]" class="chart-box" /></el-card>
+      <el-card v-for="{ opt, i } in visibleChartOptions" :key="i" shadow="never" class="chart-card"><div :ref="setChartRef(i)" class="chart-box" /></el-card>
     </div>
+
+    <el-card shadow="never" v-if="ranking.length">
+      <template #header><span>企业排放与交易排名</span></template>
+      <el-table :data="ranking" border>
+        <el-table-column label="排名" width="60" align="center"><template #default="s">{{ s.$index + 1 }}</template></el-table-column>
+        <el-table-column prop="companyName" label="企业名称" min-width="160" />
+        <el-table-column prop="companyId" label="企业编号" min-width="110" />
+        <el-table-column label="总排放量" width="120" align="right"><template #default="{ row }">{{ (row.totalEmission || 0).toLocaleString() }} t</template></el-table-column>
+        <el-table-column label="交易笔数" width="100" align="right"><template #default="{ row }">{{ (row.transactionCount || 0).toLocaleString() }}</template></el-table-column>
+      </el-table>
+    </el-card>
   </PageSaaSWrapper>
 </template>
 

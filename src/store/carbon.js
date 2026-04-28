@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
-import { AUDIT_STATUS } from '../config/constants'
+import { AUDIT_STATUS_MAP } from '../config/constants'
 import * as accountApi from '../api/account'
 import * as tradingApi from '../api/trading'
 import * as emissionApi from '../api/emission'
 import * as auditApi from '../api/audit'
 import * as adminApi from '../api/admin'
+import * as usersApi from '../api/users'
 import * as statisticsApi from '../api/statistics'
 
 export const useCarbonStore = defineStore('carbon', {
@@ -51,8 +52,12 @@ export const useCarbonStore = defineStore('carbon', {
     marketStats: { lastPrice: 0, change24h: 0, changePercent24h: 0, high24h: 0, low24h: 0, volume24h: 0 },
 
     adminUsers: [],
+    userTotal: 0,
+    userStats: null,
     adminConfigs: [],
     statistics: {},
+    systemDashboard: null,
+    dashboardData: null,
 
     _nextP2PId: 4,
   }),
@@ -85,11 +90,11 @@ export const useCarbonStore = defineStore('carbon', {
     },
 
     pendingAuditReports(state) {
-      return state.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.PENDING)
+      return state.emissionReports.filter(r => r.auditStatus === 'pending')
     },
 
     auditedReports(state) {
-      return state.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.APPROVED || r.auditStatus === AUDIT_STATUS.REJECTED)
+      return state.emissionReports.filter(r => r.auditStatus === 'approved' || r.auditStatus === 'rejected')
     },
 
     myReports(state) {
@@ -102,12 +107,12 @@ export const useCarbonStore = defineStore('carbon', {
 
     totalEmission: (state) => (companyId) =>
       state.emissionReports
-        .filter(r => r.companyId === companyId && r.auditStatus === AUDIT_STATUS.APPROVED)
+        .filter(r => r.companyId === companyId && r.auditStatus === 'approved')
         .reduce((sum, r) => sum + r.emission, 0),
 
     totalQuotaIssued: (state) => (companyId) =>
       state.emissionReports
-        .filter(r => r.companyId === companyId && r.auditStatus === AUDIT_STATUS.APPROVED)
+        .filter(r => r.companyId === companyId && r.auditStatus === 'approved')
         .reduce((sum, r) => sum + (r.emission || 0), 0),
 
     companyReportCount(state) {
@@ -208,8 +213,8 @@ export const useCarbonStore = defineStore('carbon', {
 
     async placeTradingOrder(side, price, quantity) {
       const data = await tradingApi.placeOrder({ side, price, quantity })
-      await this.fetchOrderBook()
-      await this.fetchMyOrders()
+      try { await this.fetchOrderBook() } catch {}
+      try { await this.fetchMyOrders() } catch {}
       return data
     },
 
@@ -320,7 +325,7 @@ export const useCarbonStore = defineStore('carbon', {
     },
 
     async approveReport(reportId, auditData) {
-      await auditApi.approveAudit(reportId, auditData)
+      await auditApi.approveAudit(reportId, { auditResult: 'approved', ...auditData })
       await this.fetchAuditTasks()
     },
 
@@ -336,26 +341,53 @@ export const useCarbonStore = defineStore('carbon', {
     // ==================== Admin Users ====================
     async fetchAdminUsers(params) {
       try {
-        const data = await adminApi.getAdminUsers(params)
-        if (data?.records) {
-          this.adminUsers = data.records
+        const data = await usersApi.getUsers(params)
+        if (data) {
+          this.adminUsers = data.list || []
+          this.userTotal = data.total || 0
         }
         return data
       } catch { return null }
     },
 
-    async fetchAdminUser(id) {
-      try { return await adminApi.getAdminUser(id) } catch { return null }
+    async fetchUserStats() {
+      try {
+        const data = await usersApi.getUserStats()
+        if (data) {
+          this.userStats = data
+        }
+        return data
+      } catch { return null }
+    },
+
+    async addAdminUser(data) {
+      return await usersApi.createUser(data)
     },
 
     async updateAdminUser(id, data) {
-      await adminApi.updateAdminUser(id, data)
-      await this.fetchAdminUsers()
+      const res = await usersApi.updateUser(id, data)
+      if (res) {
+        const idx = this.adminUsers.findIndex(u => u.id === id)
+        if (idx !== -1) {
+          this.adminUsers[idx] = { ...this.adminUsers[idx], ...res }
+        }
+      }
+      return res
+    },
+
+    async toggleUserCredit(id, creditEnabled) {
+      return await usersApi.toggleCredit(id, creditEnabled)
     },
 
     async deleteAdminUser(id) {
-      await adminApi.deleteAdminUser(id)
+      await usersApi.deleteUser(id)
       this.adminUsers = this.adminUsers.filter(u => u.id !== id)
+    },
+
+    async fetchUserAssets(id) {
+      try {
+        return await usersApi.getUserAssets(id)
+      } catch { return null }
     },
 
     // ==================== Admin Configs ====================
@@ -380,6 +412,27 @@ export const useCarbonStore = defineStore('carbon', {
         const data = await statisticsApi.getStatistics()
         if (data) {
           this.statistics = data
+        }
+        return data
+      } catch { return null }
+    },
+
+    async fetchSystemDashboard(params) {
+      try {
+        const data = await statisticsApi.getSystemDashboard(params)
+        if (data) {
+          this.systemDashboard = data
+        }
+        return data
+      } catch { return null }
+    },
+
+    // ==================== Dashboard ====================
+    async fetchDashboard() {
+      try {
+        const data = await emissionApi.getDashboard()
+        if (data) {
+          this.dashboardData = data
         }
         return data
       } catch { return null }

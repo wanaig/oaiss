@@ -27,3 +27,7 @@ export function submitEmissionReport(id) {
 export function getEmissionOnChain(id) {
   return request.get(`/emission-reports/${id}/onchain`)
 }
+
+export function getDashboard() {
+  return request.get('/emission-reports/dashboard')
+}

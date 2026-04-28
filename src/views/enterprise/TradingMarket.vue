@@ -39,7 +39,7 @@ const estimateAmount = computed(() => orderForm.price && orderForm.quantity ? (o
 const orderStatusInfo = (status) => ORDER_STATUS_MAP[status] || { label: status, type: 'info' }
 
 onMounted(async () => {
-  await Promise.all([store.fetchMarketStats(), store.fetchOrderBook(), store.fetchMyOrders(), store.fetchTradingTransactions(), store.fetchAccount()])
+  await Promise.all([store.fetchMarketStats(), store.fetchOrderBook(), store.fetchMyOrders({ page: 1, size: 999 }), store.fetchTradingTransactions({ page: 1, size: 999 }), store.fetchAccount()])
 })
 
 const onPlaceOrder = async () => {
@@ -92,7 +92,7 @@ const openTxDetail = (tx) => { currentTxDetail.value = tx; txDetailVisible.value
         <el-table-column label="价格" width="100" align="right"><template #default="{ row }">{{ (row.price || 0).toFixed(2) }}</template></el-table-column>
         <el-table-column label="数量/已成交" width="120" align="right"><template #default="{ row }">{{ row.originalQuantity || row.quantity || 0 }} / {{ row.filledQuantity || 0 }}</template></el-table-column>
         <el-table-column label="状态" width="80" align="center"><template #default="{ row }"><el-tag :type="orderStatusInfo(row.status).type" size="small">{{ orderStatusInfo(row.status).label }}</el-tag></template></el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" min-width="160" />
+        <el-table-column label="创建时间" min-width="160"><template #default="{ row }">{{ row.createdAt }}</template></el-table-column>
         <el-table-column label="操作" width="70" align="center" fixed="right"><template #default="{ row }"><el-button v-if="row.status === 'open' || row.status === 'partial'" link type="danger" size="small" @click="onCancelOrder(row)">撤单</el-button><span v-else class="muted">-</span></template></el-table-column>
       </el-table>
       <div class="pagination-wrap"><el-pagination v-model:current-page="orderPage" v-model:page-size="orderPageSize" background :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" :total="myOrders.length" /></div>
@@ -111,7 +111,9 @@ const openTxDetail = (tx) => { currentTxDetail.value = tx; txDetailVisible.value
         <el-table-column label="成交额" width="110" align="right"><template #default="{ row }">¥{{ (row.totalAmount || 0).toLocaleString() }}</template></el-table-column>
         <el-table-column prop="buyerName" label="买方" min-width="120" show-overflow-tooltip />
         <el-table-column prop="sellerName" label="卖方" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="timestamp" label="时间" min-width="160" />
+        <el-table-column label="时间" min-width="160">
+          <template #default="{ row }">{{ row.txTime || row.createdAt || row.timestamp }}</template>
+        </el-table-column>
         <el-table-column label="操作" width="80" align="center" fixed="right"><template #default="{ row }"><el-button link type="primary" size="small" @click="openTxDetail(row)">详情</el-button></template></el-table-column>
       </el-table>
       <div class="pagination-wrap"><el-pagination v-model:current-page="txPage" v-model:page-size="txPageSize" background :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" :total="filteredTx.length" /></div>
@@ -128,7 +130,7 @@ const openTxDetail = (tx) => { currentTxDetail.value = tx; txDetailVisible.value
         <el-descriptions-item label="总额">¥{{ (currentTxDetail.totalAmount || 0).toLocaleString() }}</el-descriptions-item>
         <el-descriptions-item label="买方">{{ currentTxDetail.buyerName }}</el-descriptions-item>
         <el-descriptions-item label="卖方">{{ currentTxDetail.sellerName }}</el-descriptions-item>
-        <el-descriptions-item label="时间" :span="2">{{ currentTxDetail.timestamp }}</el-descriptions-item>
+        <el-descriptions-item label="时间" :span="2">{{ currentTxDetail.txTime || currentTxDetail.createdAt || currentTxDetail.timestamp }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
   </PageSaaSWrapper>
@@ -162,6 +164,10 @@ const openTxDetail = (tx) => { currentTxDetail.value = tx; txDetailVisible.value
 .spread-lbl { font-size: 12px; color: var(--saas-text-secondary); }
 .spread-val { font-size: 18px; font-weight: 700; color: var(--saas-primary); font-family: monospace; }
 .muted { color: var(--saas-text-light); }
+.cell-mono { font-family: 'JetBrains Mono', 'Courier New', monospace; font-size: 13px; }
+.cell-time { font-size: 13px; color: var(--saas-text-secondary); }
+.orders-card :deep(.el-card__body) { padding: 0; }
+.orders-card :deep(.el-card__header) { padding: 14px 20px 0; border: none; }
 .pagination-wrap { margin-top: 16px; display: flex; justify-content: flex-end; }
 @media (max-width: 1200px) { .trade-grid { grid-template-columns: 1fr; } }
 </style>
