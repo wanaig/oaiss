@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { AUDIT_STATUS_MAP } from '../config/constants'
 import * as accountApi from '../api/account'
+import * as marketApi from '../api/market'
 import * as tradingApi from '../api/trading'
 import * as emissionApi from '../api/emission'
 import * as auditApi from '../api/audit'
@@ -48,6 +49,8 @@ export const useCarbonStore = defineStore('carbon', {
         status: '待成交', createdAt: '2026-04-24 08:15:20',
       },
     ],
+    tradingOrders: [],
+    orderHistory: [],
     transactions: [],
     marketStats: { lastPrice: 0, change24h: 0, changePercent24h: 0, high24h: 0, low24h: 0, volume24h: 0 },
 
@@ -198,14 +201,29 @@ export const useCarbonStore = defineStore('carbon', {
       try { return await emissionApi.getEmissionOnChain(id) } catch { return null }
     },
 
-    // ==================== Trading ====================
-    async fetchOrderBook(side) {
+    // ==================== Trading / Market ====================
+    async fetchTicker() {
       try {
-        const data = await tradingApi.getOrderBook(side)
-        if (Array.isArray(data)) {
-          const bids = data.filter(o => o.side === 'buy')
-          const asks = data.filter(o => o.side === 'sell')
-          this.orderBook = { bids, asks }
+        const data = await marketApi.getTicker()
+        if (data) {
+          this.marketStats = {
+            lastPrice: data.lastPrice ?? 0,
+            change24h: data.change24h ?? 0,
+            changePercent24h: data.changePercent ?? data.changePercent24h ?? 0,
+            high24h: data.high24h ?? 0,
+            low24h: data.low24h ?? 0,
+            volume24h: data.volume24h ?? 0,
+          }
+        }
+        return data
+      } catch { return null }
+    },
+
+    async fetchDepth() {
+      try {
+        const data = await marketApi.getDepth()
+        if (data) {
+          this.orderBook = { bids: data.bids || [], asks: data.asks || [] }
         }
         return data
       } catch { return null }
@@ -213,55 +231,52 @@ export const useCarbonStore = defineStore('carbon', {
 
     async placeTradingOrder(side, price, quantity) {
       const data = await tradingApi.placeOrder({ side, price, quantity })
-      try { await this.fetchOrderBook() } catch {}
-      try { await this.fetchMyOrders() } catch {}
+      await Promise.all([this.fetchDepth(), this.fetchOpenOrders(), this.fetchOrderHistory()]).catch(() => {})
       return data
     },
 
     async cancelTradingOrder(orderId) {
       await tradingApi.cancelOrder(orderId)
-      await this.fetchOrderBook()
-      await this.fetchMyOrders()
+      await Promise.all([this.fetchDepth(), this.fetchOpenOrders(), this.fetchOrderHistory()]).catch(() => {})
     },
 
-    async fetchMyOrders(params) {
+    async fetchOpenOrders(params) {
       try {
-        const data = await tradingApi.getMyOrders(params)
-        if (data?.records) {
-          this.tradingOrders = data.records
+        const data = await tradingApi.getOpenOrders(params)
+        if (data?.list) {
+          this.tradingOrders = data.list
         }
         return data
       } catch { return null }
     },
 
-    async fetchTradingTransactions(params) {
+    async fetchOrderHistory(params) {
       try {
-        const data = await tradingApi.getTradingTransactions(params)
-        if (data?.records) {
-          this.transactions = data.records
+        const data = await tradingApi.getOrderHistory(params)
+        if (data?.list) {
+          this.orderHistory = data.list
         }
         return data
       } catch { return null }
     },
 
-    async fetchTransactionDetail(id) {
-      try { return await tradingApi.getTransactionDetail(id) } catch { return null }
-    },
-
-    async fetchMarketStats() {
+    async fetchTradeHistory(params) {
       try {
-        const data = await tradingApi.getMarketStats()
-        if (data) {
-          this.marketStats = {
-            lastPrice: data.lastPrice ?? 0,
-            change24h: data.change24h ?? 0,
-            changePercent24h: data.changePercent24h ?? 0,
-            high24h: data.highPrice ?? data.high24h ?? 0,
-            low24h: data.lowPrice ?? data.low24h ?? 0,
-            volume24h: data.totalVolume ?? data.volume24h ?? 0,
-          }
+        const data = await tradingApi.getTradeHistory(params)
+        if (data?.list) {
+          this.transactions = data.list
         }
         return data
+      } catch { return null }
+    },
+
+    // Backward compat aliases
+    async fetchMyOrders(params) { return this.fetchOpenOrders(params) },
+    async fetchTradingTransactions(params) { return this.fetchTradeHistory(params) },
+
+    async fetchAccountAssets() {
+      try {
+        return await accountApi.getAccountAssets()
       } catch { return null }
     },
 

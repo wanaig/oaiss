@@ -12,15 +12,15 @@ const txPage = ref(1); const txPageSize = ref(10)
 const txDetailVisible = ref(false); const currentTx = ref(null)
 
 const myTx = computed(() => store.myTransactions)
-const myOrders = computed(() => store.myTradingOrders)
+const myOrders = computed(() => [...store.myTradingOrders, ...store.orderHistory])
 const activeOrders = computed(() => myOrders.value.filter(o => o.status === 'open' || o.status === 'pending' || o.status === 'partial'))
-const completedOrders = computed(() => myOrders.value.filter(o => o.status === 'filled'))
+const completedOrders = computed(() => myOrders.value.filter(o => o.status === 'filled' || o.status === 'completed'))
 const cancelledOrders = computed(() => myOrders.value.filter(o => o.status === 'cancelled'))
 const pagedTx = computed(() => { const s = (txPage.value - 1) * txPageSize.value; return myTx.value.slice(s, s + txPageSize.value) })
 
 const orderStatusInfo = (s) => ORDER_STATUS_MAP[s] || { label: s, type: 'info' }
 
-onMounted(async () => { await Promise.all([store.fetchAccount(), store.fetchMyOrders(), store.fetchTradingTransactions()]) })
+onMounted(async () => { await Promise.all([store.fetchAccount(), store.fetchMyOrders(), store.fetchOrderHistory(), store.fetchTradingTransactions()]) })
 
 const openTxDetail = (tx) => { currentTx.value = tx; txDetailVisible.value = true }
 </script>
