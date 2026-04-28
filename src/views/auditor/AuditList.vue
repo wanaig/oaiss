@@ -1,15 +1,15 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCarbonStore } from '../../store/carbon'
 import { AUDIT_STATUS } from '../../config/constants'
+import PageSaaSWrapper from '../../components/PageSaaSWrapper.vue'
 
 const router = useRouter()
 const store = useCarbonStore()
 
 const filterStatus = ref('')
-const page = ref(1)
-const pageSize = ref(10)
+const page = ref(1); const pageSize = ref(10)
 
 const statusOptions = [
   { label: '待审核', value: AUDIT_STATUS.PENDING },
@@ -18,122 +18,61 @@ const statusOptions = [
 ]
 
 const filteredData = computed(() => {
-  const allReports = store.emissionReports.filter(r => r.signed)
-  if (!filterStatus.value) return allReports
-  return allReports.filter(r => r.auditStatus === filterStatus.value)
+  if (!filterStatus.value) return store.emissionReports
+  return store.emissionReports.filter(r => r.auditStatus === filterStatus.value)
 })
+const pagedData = computed(() => { const s = (page.value - 1) * pageSize.value; return filteredData.value.slice(s, s + pageSize.value) })
 
-const total = computed(() => filteredData.value.length)
-const pagedData = computed(() => {
-  const start = (page.value - 1) * pageSize.value
-  return filteredData.value.slice(start, start + pageSize.value)
-})
+const kpi = computed(() => ({
+  pending: store.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.PENDING).length,
+  approved: store.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.APPROVED).length,
+  rejected: store.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.REJECTED).length,
+}))
 
-const pendingCount = computed(() => store.emissionReports.filter(r => r.signed && r.auditStatus === AUDIT_STATUS.PENDING).length)
-const approvedCount = computed(() => store.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.APPROVED).length)
-const rejectedCount = computed(() => store.emissionReports.filter(r => r.auditStatus === AUDIT_STATUS.REJECTED).length)
+const auditStatusTag = (s) => ({ 待审核: 'warning', 已通过: 'success', 已驳回: 'danger' }[s] || 'info')
 
-const auditStatusTag = (status) => {
-  switch (status) {
-    case AUDIT_STATUS.PENDING: return 'warning'
-    case AUDIT_STATUS.APPROVED: return 'success'
-    case AUDIT_STATUS.REJECTED: return 'danger'
-    default: return 'info'
-  }
-}
+onMounted(() => { store.fetchAuditTasks() })
 
-const openDetail = (row) => {
-  router.push(`/auditor/audit/detail/${row.id}`)
-}
-
-const onQuery = () => { page.value = 1 }
-const onSizeChange = (s) => { pageSize.value = s; page.value = 1 }
-const onPageChange = (p) => { page.value = p }
+const openDetail = (row) => router.push(`/auditor/audit/detail/${row.id}`)
 </script>
 
 <template>
-  <section class="audit-list-page">
-    <el-card class="section-card" shadow="never">
-      <el-breadcrumb separator="/">
-        <el-breadcrumb-item>审核材料</el-breadcrumb-item>
-        <el-breadcrumb-item>审核列表</el-breadcrumb-item>
-      </el-breadcrumb>
-    </el-card>
-
-    <div class="stats-row">
-      <el-card class="stat-card" shadow="never">
-        <div class="stat-label">待审核</div>
-        <div class="stat-value warning">{{ pendingCount }}</div>
-      </el-card>
-      <el-card class="stat-card" shadow="never">
-        <div class="stat-label">已通过</div>
-        <div class="stat-value success">{{ approvedCount }}</div>
-      </el-card>
-      <el-card class="stat-card" shadow="never">
-        <div class="stat-label">已驳回</div>
-        <div class="stat-value danger">{{ rejectedCount }}</div>
-      </el-card>
+  <PageSaaSWrapper title="审核列表" description="查看和管理碳排放报告审核任务">
+    <div class="kpi-row">
+      <el-card shadow="never" class="kpi-card"><div class="kpi-label">待审核</div><div class="kpi-value" style="color:var(--saas-warning)">{{ kpi.pending }}</div></el-card>
+      <el-card shadow="never" class="kpi-card"><div class="kpi-label">已通过</div><div class="kpi-value" style="color:var(--saas-success)">{{ kpi.approved }}</div></el-card>
+      <el-card shadow="never" class="kpi-card"><div class="kpi-label">已驳回</div><div class="kpi-value" style="color:var(--saas-danger)">{{ kpi.rejected }}</div></el-card>
     </div>
 
-    <el-card class="section-card" shadow="never">
-      <div class="search-row">
-        <el-select v-model="filterStatus" placeholder="全部审核状态" clearable style="width: 160px">
+    <el-card shadow="never">
+      <div style="display:flex;gap:12px;align-items:center">
+        <el-select v-model="filterStatus" placeholder="全部状态" clearable style="width:160px">
           <el-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
         </el-select>
-        <el-button type="primary" @click="onQuery">查询</el-button>
+        <el-button type="primary" @click="page = 1">查询</el-button>
       </div>
     </el-card>
 
-    <el-card class="section-card" shadow="never">
+    <el-card shadow="never">
       <el-table :data="pagedData" border>
-        <el-table-column label="序号" width="68" align="center">
-          <template #default="scope">{{ (page - 1) * pageSize + scope.$index + 1 }}</template>
-        </el-table-column>
-        <el-table-column prop="id" label="报告ID" min-width="150" />
-        <el-table-column prop="companyName" label="企业名称" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="deptName" label="部门名称" min-width="130" />
-        <el-table-column prop="enterpriseType" label="企业类型" min-width="100" />
-        <el-table-column label="碳排放量" min-width="120" align="right">
-          <template #default="{ row }">{{ row.emission.toLocaleString() }} tCO2e</template>
-        </el-table-column>
-        <el-table-column prop="submitTime" label="提交时间" min-width="170" />
-        <el-table-column label="审核状态" min-width="90" align="center">
-          <template #default="{ row }">
-            <el-tag :type="auditStatusTag(row.auditStatus)" size="small">{{ row.auditStatus }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="110" fixed="right" align="center">
-          <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="openDetail(row)">
-              {{ row.auditStatus === AUDIT_STATUS.PENDING ? '审核' : '查看详情' }}
-            </el-button>
-          </template>
-        </el-table-column>
+        <el-table-column label="序号" width="60" align="center"><template #default="s">{{ (page - 1) * pageSize + s.$index + 1 }}</template></el-table-column>
+        <el-table-column prop="id" label="报告ID" min-width="140" />
+        <el-table-column prop="companyName" label="企业" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="deptName" label="部门" min-width="120" />
+        <el-table-column label="碳排放量" width="110" align="right"><template #default="{ row }">{{ (row.emission || 0).toLocaleString() }} t</template></el-table-column>
+        <el-table-column prop="submitTime" label="提交时间" min-width="160" />
+        <el-table-column label="审核状态" width="80" align="center"><template #default="{ row }"><el-tag :type="auditStatusTag(row.auditStatus)" size="small">{{ row.auditStatus }}</el-tag></template></el-table-column>
+        <el-table-column label="操作" width="90" fixed="right" align="center"><template #default="{ row }"><el-button link type="primary" size="small" @click="openDetail(row)">{{ row.auditStatus === AUDIT_STATUS.PENDING ? '审核' : '查看' }}</el-button></template></el-table-column>
       </el-table>
-
-      <div class="pagination-row">
-        <el-pagination
-          v-model:current-page="page" v-model:page-size="pageSize"
-          background :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next, jumper"
-          :total="total"
-          @size-change="onSizeChange" @current-change="onPageChange"
-        />
-      </div>
+      <div class="pagination-wrap"><el-pagination v-model:current-page="page" v-model:page-size="pageSize" background :page-sizes="[10,20,50]" layout="total, sizes, prev, pager, next, jumper" :total="filteredData.length" /></div>
     </el-card>
-  </section>
+  </PageSaaSWrapper>
 </template>
 
 <style scoped>
-.audit-list-page { display: flex; flex-direction: column; gap: 14px; }
-.section-card { border: 1px solid var(--border-color); border-radius: 12px; }
-.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-.stat-card { text-align: center; padding: 4px 0; }
-.stat-label { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; }
-.stat-value { font-size: 32px; font-weight: 700; }
-.stat-value.warning { color: #e6a23c; }
-.stat-value.success { color: #67c23a; }
-.stat-value.danger { color: #f56c6c; }
-.search-row { display: flex; gap: 10px; }
-.pagination-row { margin-top: 14px; display: flex; justify-content: flex-end; }
+.kpi-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.kpi-card { text-align: center; padding: 16px 0; }
+.kpi-label { font-size: 13px; color: var(--saas-text-secondary); margin-bottom: 6px; }
+.kpi-value { font-size: 28px; font-weight: 700; }
+.pagination-wrap { margin-top: 16px; display: flex; justify-content: flex-end; }
 </style>

@@ -30,6 +30,15 @@ export const ORDER_SIDE_LABEL = Object.freeze({
   sell: '卖出',
 })
 
+// API 订单状态 → 前端显示映射
+export const ORDER_STATUS_MAP = {
+  open: { label: 'open', type: '' },
+  filled: { label: '已完成', type: 'success' },
+  cancelled: { label: '已取消', type: 'info' },
+  partial: { label: '部分成交', type: 'warning' },
+  pending: { label: '待成交', type: '' },
+}
+
 // 排放计算公式
 export function computeEmission(coalHeatValue, coalConsumption, oilHeatValue, oilConsumption) {
   return Number(((coalHeatValue * coalConsumption * 0.12 + oilHeatValue * oilConsumption * 0.18)).toFixed(2))

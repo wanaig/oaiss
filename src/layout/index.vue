@@ -1,10 +1,10 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Expand, Fold, UserFilled } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { Expand, Fold, Bell, UserFilled } from '@element-plus/icons-vue'
+import { ElMessage, ElDropdown, ElDropdownMenu, ElDropdownItem } from 'element-plus'
 import { useAppStore } from '../store'
-import { MENU_BY_ROLE } from '../config/menu'
+import { MENU_BY_ROLE, ROLE_LABEL } from '../config/menu'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,17 +16,13 @@ const activeMenu = computed(() => route.path)
 
 const defaultOpeneds = computed(() => {
   const openList = []
-
   menuTree.value.forEach((group) => {
     group.children.forEach((secondLevel) => {
-      const matchCurrent = secondLevel.children.some((leaf) => leaf.path === route.path)
-
-      if (matchCurrent) {
+      if (secondLevel.children.some((leaf) => leaf.path === route.path)) {
         openList.push(group.label, `${group.label}-${secondLevel.label}`)
       }
     })
   })
-
   return openList
 })
 
@@ -35,6 +31,13 @@ const onSelectMenu = (index) => {
     router.push(index)
   }
 }
+
+onMounted(() => {
+  if (appStore.token && !appStore._validated) {
+    appStore._validated = true
+    appStore.fetchCurrentUser()
+  }
+})
 
 const onLogout = () => {
   appStore.logout()
@@ -45,15 +48,14 @@ const onLogout = () => {
 
 <template>
   <el-container class="app-shell">
-    <el-aside class="side-panel" :width="appStore.sidebarCollapsed ? '70px' : '260px'">
-      <div class="brand-area">
-        <div class="logo-dot" />
-        <span v-show="!appStore.sidebarCollapsed" class="brand-title">碳监管中台</span>
+    <el-aside class="sidenav" :width="appStore.sidebarCollapsed ? '64px' : '240px'">
+      <div class="sidenav-brand">
+        <div class="brand-icon">C</div>
+        <span v-show="!appStore.sidebarCollapsed" class="brand-text">碳链监管</span>
       </div>
 
-      <el-scrollbar class="menu-scrollbar">
+      <el-scrollbar class="sidenav-scroll">
         <el-menu
-          class="side-menu"
           :default-active="activeMenu"
           :default-openeds="defaultOpeneds"
           :collapse="appStore.sidebarCollapsed"
@@ -61,55 +63,48 @@ const onLogout = () => {
           unique-opened
           @select="onSelectMenu"
         >
-          <el-sub-menu v-for="group in menuTree" :key="group.label" :index="group.label">
-            <template #title>
-              <span>{{ group.label }}</span>
-            </template>
-
-            <el-sub-menu
-              v-for="secondLevel in group.children"
-              :key="`${group.label}-${secondLevel.label}`"
-              :index="`${group.label}-${secondLevel.label}`"
-            >
+          <template v-for="group in menuTree" :key="group.label">
+            <el-sub-menu :index="group.label">
               <template #title>
-                <span>{{ secondLevel.label }}</span>
+                <span>{{ group.label }}</span>
               </template>
-
-              <el-menu-item v-for="leaf in secondLevel.children" :key="leaf.path" :index="leaf.path">
-                {{ leaf.label }}
-              </el-menu-item>
+              <el-sub-menu v-for="l2 in group.children" :key="`${group.label}-${l2.label}`" :index="`${group.label}-${l2.label}`">
+                <template #title><span>{{ l2.label }}</span></template>
+                <el-menu-item v-for="leaf in l2.children" :key="leaf.path" :index="leaf.path">{{ leaf.label }}</el-menu-item>
+              </el-sub-menu>
             </el-sub-menu>
-          </el-sub-menu>
+          </template>
         </el-menu>
       </el-scrollbar>
     </el-aside>
 
     <el-container>
-      <el-header class="top-header">
-        <div class="header-left">
-          <el-button class="collapse-btn" circle plain @click="appStore.toggleSidebar">
-            <el-icon>
-              <Fold v-if="!appStore.sidebarCollapsed" />
-              <Expand v-else />
-            </el-icon>
+      <el-header class="topbar">
+        <div class="topbar-left">
+          <el-button class="collapse-btn" text @click="appStore.toggleSidebar">
+            <el-icon :size="20"><Fold v-if="!appStore.sidebarCollapsed" /><Expand v-else /></el-icon>
           </el-button>
-
-          <div class="system-meta">
-            <div class="system-title">{{ appStore.systemTitle }}</div>
-            <div class="system-subtitle">环保与低碳监管系统框架</div>
-          </div>
+          <div class="page-title">{{ route.meta?.title || '' }}</div>
         </div>
 
-        <div class="header-right">
-          <el-tag class="status-tag" effect="dark">监管模式</el-tag>
-          <el-avatar :size="36" class="avatar-icon">
-            <el-icon><UserFilled /></el-icon>
-          </el-avatar>
-          <div class="user-block">
-            <div class="user-name">{{ appStore.username || '系统用户' }}</div>
-            <div class="user-role">{{ appStore.roleLabel }}</div>
-          </div>
-          <el-button class="logout-btn" text @click="onLogout">退出</el-button>
+        <div class="topbar-right">
+          <el-button class="notif-btn" text circle>
+            <el-icon :size="18"><Bell /></el-icon>
+          </el-button>
+          <el-dropdown trigger="click">
+            <div class="user-info">
+              <el-avatar :size="32" class="user-avatar"><el-icon><UserFilled /></el-icon></el-avatar>
+              <div class="user-meta" v-if="!appStore.sidebarCollapsed">
+                <div class="user-name">{{ appStore.username }}</div>
+                <div class="user-role-badge">{{ ROLE_LABEL[appStore.role] || appStore.roleLabel }}</div>
+              </div>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="onLogout">退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </el-header>
 
@@ -121,176 +116,88 @@ const onLogout = () => {
 </template>
 
 <style scoped>
-.app-shell {
-  height: 100%;
-}
+.app-shell { height: 100%; }
 
-.side-panel {
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, #0d3236 0%, #125850 62%, #198369 100%);
+/* ── Sidebar ── */
+.sidenav {
+  background: var(--saas-sidebar);
+  color: #fff;
+  transition: width 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
-
-.brand-area {
-  height: 66px;
+.sidenav-brand {
+  height: 64px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 20px;
-  color: #eef7f6;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
-
-.logo-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: linear-gradient(130deg, #34d5bf, #90f0b1);
-  box-shadow: 0 0 0 6px rgba(73, 193, 153, 0.15);
-}
-
-.brand-title {
+.brand-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #4361ee, #2ec4b6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
   font-size: 16px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
+  flex-shrink: 0;
 }
-
-.menu-scrollbar {
-  height: calc(100vh - 66px);
+.brand-text { font-size: 16px; font-weight: 700; letter-spacing: 0.5px; white-space: nowrap; }
+.sidenav-scroll { flex: 1; }
+.sidenav-scroll :deep(.el-menu) { border: none; background: transparent; }
+.sidenav-scroll :deep(.el-sub-menu__title),
+.sidenav-scroll :deep(.el-menu-item) {
+  color: rgba(255,255,255,0.65);
+  height: 42px;
+  line-height: 42px;
 }
-
-.side-menu {
-  border-right: none;
-  background: transparent;
+.sidenav-scroll :deep(.el-sub-menu__title:hover),
+.sidenav-scroll :deep(.el-menu-item:hover) { background: rgba(255,255,255,0.06); color: #fff; }
+.sidenav-scroll :deep(.el-menu-item.is-active) {
+  color: #fff;
+  background: rgba(67, 97, 238, 0.35);
+  position: relative;
 }
-
-.side-menu :deep(.el-menu) {
-  background: transparent;
-  border-right: none;
+.sidenav-scroll :deep(.el-menu-item.is-active::before) {
+  content: '';
+  position: absolute;
+  left: 0; top: 8px; bottom: 8px;
+  width: 3px;
+  background: var(--saas-primary);
+  border-radius: 0 2px 2px 0;
 }
+.sidenav-scroll :deep(.el-sub-menu .el-menu) { background: rgba(0,0,0,0.15); }
 
-.side-menu :deep(.el-sub-menu__title),
-.side-menu :deep(.el-menu-item) {
-  color: rgba(235, 248, 247, 0.87);
-}
-
-.side-menu :deep(.el-sub-menu__title:hover),
-.side-menu :deep(.el-menu-item:hover) {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.side-menu :deep(.el-menu-item.is-active) {
-  color: #ffffff;
-  background: rgba(38, 204, 162, 0.34);
-}
-
-.top-header {
-  height: 70px;
+/* ── Topbar ── */
+.topbar {
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  background: linear-gradient(90deg, #17363a 0%, #1e4d49 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 24px;
+  background: var(--saas-header);
+  border-bottom: 1px solid var(--saas-border);
 }
-
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.collapse-btn {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
-  color: #ecf7f4;
-}
-
-.collapse-btn:hover {
-  border-color: rgba(255, 255, 255, 0.26);
-  background: rgba(255, 255, 255, 0.14);
-  color: #ecf7f4;
-}
-
-.system-meta {
-  color: #f0fbf6;
-}
-
-.system-title {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-}
-
-.system-subtitle {
-  font-size: 12px;
-  opacity: 0.78;
-  margin-top: 3px;
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.logout-btn {
-  color: #e8faf2;
-  padding: 0 6px;
-}
-
-.logout-btn:hover {
-  color: #ffffff;
-}
-
-.status-tag {
-  background: linear-gradient(120deg, #18a99a, #42c977);
-  border: none;
-  color: #ffffff;
-}
-
-.avatar-icon {
-  color: #1f4748;
-  background: linear-gradient(120deg, #d8fbef 0%, #e8f4fb 100%);
-}
-
-.user-name {
-  font-size: 14px;
-  font-weight: 700;
-  color: #f0fbf6;
-}
-
-.user-role {
-  font-size: 12px;
-  color: rgba(240, 251, 246, 0.75);
-  margin-top: 2px;
-}
-
-.main-content {
-  min-height: calc(100vh - 70px);
-}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.page-title { font-size: 17px; font-weight: 600; color: var(--saas-text); }
+.collapse-btn { color: var(--saas-text-secondary); }
+.collapse-btn:hover { color: var(--saas-text); }
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.notif-btn { color: var(--saas-text-secondary); }
+.notif-btn:hover { color: var(--saas-text); }
+.user-info { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.user-avatar { background: linear-gradient(135deg, #4361ee, #2ec4b6); }
+.user-meta { line-height: 1.3; }
+.user-name { font-size: 13px; font-weight: 600; color: var(--saas-text); }
+.user-role-badge { font-size: 11px; color: var(--saas-text-light); }
+.main-content { min-height: calc(100vh - 64px); background: var(--saas-bg); }
 
 @media (max-width: 992px) {
-  .top-header {
-    height: 78px;
-    padding: 10px 14px;
-    flex-wrap: wrap;
-    gap: 10px;
-  }
-
-  .system-title {
-    font-size: 16px;
-  }
-
-  .system-subtitle {
-    display: none;
-  }
-
-  .user-role {
-    display: none;
-  }
-
-  .main-content {
-    min-height: calc(100vh - 78px);
-  }
+  .sidenav { width: 64px !important; }
+  .brand-text { display: none; }
 }
 </style>

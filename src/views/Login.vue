@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAppStore } from '../store'
-import { ROLE, ROLE_HOME } from '../config/menu'
+import { ROLE_HOME } from '../config/menu'
 
 const route = useRoute()
 const router = useRouter()
@@ -26,17 +26,6 @@ const formRules = {
   account: [{ required: true, message: '请输入账号', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
   captchaInput: [{ required: true, message: '请输入验证码', trigger: 'blur' }],
-}
-
-const inferRoleByAccount = (account) => {
-  const lower = account.toLowerCase()
-  if (lower.startsWith('admin')) {
-    return ROLE.ADMIN
-  }
-  if (lower.startsWith('auditor')) {
-    return ROLE.AUDITOR
-  }
-  return ROLE.ENTERPRISE
 }
 
 const randomCaptcha = () => {
@@ -115,32 +104,36 @@ const onSubmit = async () => {
     return
   }
 
-  const role = inferRoleByAccount(form.account)
-  appStore.login({
-    username: form.account || '系统用户',
-    role,
-  })
-
   persistLoginForm()
 
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
-  const target = redirect || ROLE_HOME[role]
+  try {
+    const { role } = await appStore.login({
+      username: form.account,
+      password: form.password,
+    })
 
-  ElMessage.success('登录成功')
-  router.replace(target)
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : ''
+    const target = redirect || ROLE_HOME[role]
+
+    ElMessage.success('登录成功')
+    router.replace(target)
+  } catch (e) {
+    refreshCaptcha()
+    form.captchaInput = ''
+  }
 }
 </script>
 
 <template>
   <div class="login-page">
-    <div class="login-bg-layer" />
+    <div class="login-bg" />
 
     <el-card class="login-card" shadow="never">
       <div class="login-header">
-        <div class="logo-dot" />
+        <div class="brand-mark">C</div>
         <div>
-          <h1>碳资产监管后台</h1>
-          <p>请输入账号、密码与验证码登录系统</p>
+          <h1>碳链监管</h1>
+          <p>登录您的账号以访问系统</p>
         </div>
       </div>
 
@@ -148,32 +141,19 @@ const onSubmit = async () => {
         <el-form-item label="账号" prop="account">
           <el-input v-model="form.account" placeholder="请输入账号" clearable />
         </el-form-item>
-
         <el-form-item label="密码" prop="password">
-          <el-input
-            v-model="form.password"
-            type="password"
-            show-password
-            placeholder="请输入密码"
-          />
+          <el-input v-model="form.password" type="password" show-password placeholder="请输入密码" />
         </el-form-item>
-
         <el-form-item label="验证码" prop="captchaInput">
           <div class="captcha-row">
             <el-input v-model="form.captchaInput" placeholder="请输入验证码" />
             <img :src="captchaImage" class="captcha-image" alt="验证码" @click="refreshCaptcha" />
           </div>
         </el-form-item>
-
         <el-form-item>
           <el-checkbox v-model="form.rememberPassword">记住密码</el-checkbox>
         </el-form-item>
-
-        <div class="login-tips">提示：账号前缀可区分角色，如 admin、auditor，其余默认企业用户。</div>
-
-        <el-button class="submit-btn" type="primary" size="large" @click="onSubmit">
-          登录
-        </el-button>
+        <el-button class="submit-btn" type="primary" size="large" @click="onSubmit">登录</el-button>
       </el-form>
     </el-card>
   </div>
@@ -187,24 +167,22 @@ const onSubmit = async () => {
   justify-content: center;
   position: relative;
   padding: 20px;
+  background: var(--saas-bg);
 }
 
-.login-bg-layer {
+.login-bg {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 22%, rgba(20, 167, 154, 0.3), transparent 42%),
-    radial-gradient(circle at 82% 78%, rgba(69, 190, 117, 0.28), transparent 40%),
-    linear-gradient(180deg, #163237 0%, #1f4a4d 100%);
+    radial-gradient(ellipse at 20% 30%, rgba(67, 97, 238, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(46, 196, 182, 0.06) 0%, transparent 50%);
 }
 
 .login-card {
   width: 100%;
-  max-width: 520px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 250, 249, 0.96));
-  box-shadow: 0 24px 50px rgba(9, 34, 37, 0.24);
+  max-width: 420px;
+  border-radius: 12px !important;
+  padding: 36px 32px;
   position: relative;
   z-index: 2;
 }
@@ -212,27 +190,32 @@ const onSubmit = async () => {
 .login-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
+  gap: 14px;
+  margin-bottom: 28px;
 }
 
-.logo-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: linear-gradient(130deg, #23baa8, #6adf85);
-  box-shadow: 0 0 0 6px rgba(35, 186, 168, 0.12);
+.brand-mark {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #4361ee, #2ec4b6);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+  flex-shrink: 0;
 }
 
 .login-header h1 {
   margin: 0;
-  font-size: 24px;
-  color: #1a2c30;
+  font-size: 22px;
+  color: var(--saas-text);
 }
 
 .login-header p {
-  margin: 8px 0 0;
-  color: #607579;
+  margin: 6px 0 0;
+  color: var(--saas-text-secondary);
   font-size: 14px;
 }
 
@@ -247,29 +230,19 @@ const onSubmit = async () => {
   width: 110px;
   height: 40px;
   border-radius: 8px;
-  border: 1px solid #c3dfd7;
+  border: 1px solid var(--saas-border);
   cursor: pointer;
-}
-
-.login-tips {
-  margin-top: -4px;
-  margin-bottom: 8px;
-  color: #668185;
-  font-size: 12px;
 }
 
 .submit-btn {
   width: 100%;
-  margin-top: 8px;
-  border: none;
-  background: linear-gradient(120deg, #18a99a 0%, #42c977 100%);
+  margin-top: 4px;
 }
 
 @media (max-width: 600px) {
   .login-card {
     max-width: 100%;
   }
-
   .captcha-row {
     grid-template-columns: 1fr;
   }
